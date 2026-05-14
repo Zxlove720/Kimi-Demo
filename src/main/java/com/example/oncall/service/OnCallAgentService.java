@@ -39,7 +39,7 @@ public class OnCallAgentService {
     private String model;
 
     private static final Pattern TOOL_CALL_PATTERN = Pattern.compile(
-            "<tool_call>\\s*\\{[^}]+\\}\\s*</tool_call>", Pattern.DOTALL);
+            "<tool_call>\\s*(.+?)\\s*</tool_call>", Pattern.DOTALL);
 
     private static final String SYSTEM_PROMPT = """
             你是一名资深 On-Call 值班助手，精通各部门的 SOP 文档。你的任务是通过对话回答用户的 On-Call 问题。
@@ -167,12 +167,8 @@ public class OnCallAgentService {
         Matcher matcher = TOOL_CALL_PATTERN.matcher(llmResponse);
 
         while (matcher.find()) {
-            String toolCallBlock = matcher.group();
             try {
-                String jsonStr = toolCallBlock
-                        .replace("<tool_call>", "")
-                        .replace("</tool_call>", "")
-                        .trim();
+                String jsonStr = matcher.group(1).trim();
                 JsonNode node = objectMapper.readTree(jsonStr);
                 String tool = node.path("tool").asText();
                 JsonNode args = node.path("args");
@@ -185,7 +181,7 @@ public class OnCallAgentService {
                     }
                 }
             } catch (Exception e) {
-                log.error("Failed to parse tool call: {}", toolCallBlock, e);
+                log.error("Failed to parse tool call", e);
                 results.add("【工具调用失败】解析错误: " + e.getMessage());
             }
         }
