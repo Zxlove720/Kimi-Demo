@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Phase 3 - On-Call 助手 Agent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 40px); }
+        h1 { text-align: center; margin-bottom: 15px; color: #1a5276; font-size: 22px; }
+        .nav { text-align: center; margin-bottom: 15px; }
+        .nav a { margin: 0 10px; color: #2980b9; text-decoration: none; font-size: 14px; }
+        .nav a:hover { text-decoration: underline; }
+        .chat-area { flex: 1; overflow-y: auto; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        .message { margin-bottom: 16px; display: flex; flex-direction: column; }
+        .message.user { align-items: flex-end; }
+        .message.assistant { align-items: flex-start; }
+        .bubble { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.6; font-size: 14px; }
+        .message.user .bubble { background: #2980b9; color: white; border-bottom-right-radius: 4px; }
+        .message.assistant .bubble { background: #f0f2f5; color: #333; border-bottom-left-radius: 4px; }
+        .message .role { font-size: 12px; color: #888; margin-bottom: 4px; }
+        .reasoning { max-width: 80%; background: #fff8e1; border-left: 3px solid #ffc107; padding: 10px 14px; border-radius: 0 8px 8px 0; margin-bottom: 8px; font-size: 13px; color: #666; font-style: italic; }
+        .input-area { display: flex; gap: 10px; }
+        .input-area textarea { flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; resize: none; height: 60px; font-family: inherit; }
+        .input-area button { padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; }
+        .input-area button:hover { background: #c0392b; }
+        .input-area button:disabled { background: #ccc; cursor: not-allowed; }
+        .empty-state { text-align: center; color: #888; padding: 40px 20px; }
+        .empty-state h3 { margin-bottom: 10px; color: #666; }
+        .empty-state p { font-size: 13px; line-height: 1.8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Phase 3：On-Call 助手 Agent</h1>
+        <div class="nav">
+            <a href="/v1">关键词搜索</a> |
+            <a href="/v2">语义搜索</a> |
+            <a href="/v3">On-Call 助手</a>
+        </div>
+        <div class="chat-area" id="chatArea">
+            <div class="empty-state">
+                <h3>👋 我是你的 On-Call 值班助手</h3>
+                <p>
+                    我可以帮你解答各类值班问题，例如：<br>
+                    • "服务 OOM 了怎么办？"<br>
+                    • "数据库主从延迟超过30秒怎么处理？"<br>
+                    • "怀疑有人入侵了系统"<br>
+                    • "推荐结果质量下降了"
+                </p>
+            </div>
+        </div>
+        <div class="input-area">
+            <textarea id="userInput" placeholder="输入你的问题..." onkeypress="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+            <button id="sendBtn" onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        const history = [];
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const btn = document.getElementById('sendBtn');
+            const text = input.value.trim();
+            if (!text) return;
+
+            appendMessage('user', text);
+            input.value = '';
+            btn.disabled = true;
+            btn.textContent = '思考中...';
+
+            history.push({ role: 'user', content: text });
+
+            try {
+                const res = await fetch('/v3/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text, history: history.slice(0, -1) })
+                });
+                const data = await res.json();
+                const content = data.content || '抱歉，没有获取到回答。';
+                appendMessage('assistant', content);
+                history.push({ role: 'assistant', content: content });
+            } catch (e) {
+                appendMessage('assistant', '[错误] 请求失败: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '发送';
+            }
+        }
+
+        function appendMessage(role, content) {
+            const area = document.getElementById('chatArea');
+            // Remove empty state if exists
+            if (area.querySelector('.empty-state')) {
+                area.innerHTML = '';
+            }
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + role;
+
+            const roleLabel = document.createElement('div');
+            roleLabel.className = 'role';
+            roleLabel.textContent = role === 'user' ? '你' : 'On-Call 助手';
+            msgDiv.appendChild(roleLabel);
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            // Support simple markdown-like formatting
+            bubble.innerHTML = formatContent(content);
+            msgDiv.appendChild(bubble);
+
+            area.appendChild(msgDiv);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function formatContent(text) {
+            return escapeHtml(text)
+                .replace(/\n/g, '<br>')
+                .replace(/```([\s\S]*?)```/g, '<pre style="background:#f4f4f4;padding:10px;border-radius:6px;overflow-x:auto;"><code>$1</code></pre>')
+                .replace(/`([^`]+)`/g, '<code style="background:#f4f4f4;padding:2px 4px;border-radius:3px;">$1</code>');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

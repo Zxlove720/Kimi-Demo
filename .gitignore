@@ -1,0 +1,48 @@
+# Maven / Gradle
+/target/
+/build/
+/out/
+
+# Compiled class files
+*.class
+
+# Log files
+*.log
+logs/
+
+# Package files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# IDE - IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# IDE - Eclipse
+.project
+.classpath
+.settings/
+
+# IDE - VS Code
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.swp
+*.bak
+*~
+
+# Environment files
+.env
+.env.local
