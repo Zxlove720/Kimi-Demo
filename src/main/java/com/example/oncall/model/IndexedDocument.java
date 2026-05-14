@@ -8,6 +8,7 @@ public class IndexedDocument {
     private String title;
     private String rawText;
     private String visibleText;
+    private String coreText;  // 核心差异化内容（用于Embedding）
     private Map<String, Integer> termFreq;
     private Set<String> terms;
     private float[] embedding;
@@ -44,6 +45,14 @@ public class IndexedDocument {
 
     public void setVisibleText(String visibleText) {
         this.visibleText = visibleText;
+    }
+
+    public String getCoreText() {
+        return coreText;
+    }
+
+    public void setCoreText(String coreText) {
+        this.coreText = coreText;
     }
 
     public Map<String, Integer> getTermFreq() {
