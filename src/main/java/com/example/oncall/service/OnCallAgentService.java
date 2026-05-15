@@ -1,6 +1,8 @@
 package com.example.oncall.service;
 
 import com.example.oncall.model.ChatMessage;
+import com.example.oncall.model.ChatResponse;
+import com.example.oncall.model.Conversation;
 import com.example.oncall.tool.FileTools;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +28,7 @@ public class OnCallAgentService {
     private static final Logger log = LoggerFactory.getLogger(OnCallAgentService.class);
 
     private final FileTools fileTools;
+    private final ConversationStore conversationStore;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private WebClient webClient;
 
@@ -85,8 +88,9 @@ public class OnCallAgentService {
             """;
 
     @Autowired
-    public OnCallAgentService(FileTools fileTools) {
+    public OnCallAgentService(FileTools fileTools, ConversationStore conversationStore) {
         this.fileTools = fileTools;
+        this.conversationStore = conversationStore;
     }
 
     @PostConstruct
@@ -98,40 +102,71 @@ public class OnCallAgentService {
                 .build();
     }
 
-    public String chat(String userMessage, List<ChatMessage> history) {
-        log.info("Agent chat: userMessage={}, historySize={}", userMessage,
-                history == null ? 0 : history.size());
+    public ChatResponse chat(String conversationId, String userMessage) {
+        log.info("Agent chat: conversationId={}, userMessage={}", conversationId, userMessage);
 
+        // 1. 获取或创建对话
+        if (conversationId == null || conversationId.isBlank()) {
+            Conversation conversation = conversationStore.createConversation(userMessage);
+            conversationId = conversation.getId();
+        } else if (conversationStore.getConversation(conversationId).isEmpty()) {
+            Conversation conversation = conversationStore.createConversation(userMessage);
+            conversationId = conversation.getId();
+        }
+
+        // 2. 保存用户消息
+        conversationStore.addMessage(conversationId, "user", userMessage);
+
+        // 3. 构建消息列表（system + 历史 + 当前用户消息）
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT));
 
-        if (history != null) {
-            for (ChatMessage msg : history) {
-                messages.add(Map.of("role", msg.getRole(), "content", msg.getContent()));
-            }
+        List<ChatMessage> history = conversationStore.getMessages(conversationId);
+        for (ChatMessage msg : history) {
+            messages.add(Map.of("role", msg.getRole(), "content", msg.getContent()));
         }
 
-        messages.add(Map.of("role", "user", "content", userMessage));
-
-        // First LLM call: decide which files to read
+        // 4. 第一轮 LLM 调用
         String firstResponse = callLLM(messages);
         log.info("First LLM response: {}", firstResponse.substring(0, Math.min(200, firstResponse.length())));
 
-        // Check if tool calls are needed
+        // 5. 检查是否需要工具调用
         List<String> toolResults = executeToolCalls(firstResponse);
 
+        StringBuilder reasoning = new StringBuilder();
+        String finalResponse;
         if (!toolResults.isEmpty()) {
+            reasoning.append("【思考过程】\n").append(firstResponse).append("\n\n");
+            reasoning.append("【工具调用】\n");
+            for (String result : toolResults) {
+                reasoning.append(result).append("\n\n");
+            }
+
             messages.add(Map.of("role", "assistant", "content", firstResponse));
             String combinedResults = String.join("\n\n---\n\n", toolResults);
             messages.add(Map.of("role", "user", "content", TOOL_RESULT_PROMPT.formatted(combinedResults)));
 
-            String finalResponse = callLLM(messages);
+            finalResponse = callLLM(messages);
             log.info("Final LLM response: {} chars", finalResponse.length());
-            return finalResponse;
+        } else {
+            finalResponse = firstResponse;
+            reasoning.append("【直接回答】\n").append(firstResponse);
         }
 
-        return firstResponse;
+        // 6. 保存助手回复（包含完整过程，让历史记录中也能看到工具调用）
+        String fullReply = reasoning.length() > 0
+                ? reasoning + "\n【回答】\n" + finalResponse
+                : finalResponse;
+        conversationStore.addMessage(conversationId, "assistant", fullReply);
+
+        ChatResponse response = new ChatResponse(conversationId, finalResponse);
+        if (reasoning.length() > 0) {
+            response.setReasoning(reasoning.toString());
+        }
+        return response;
     }
+
+
 
     private String callLLM(List<Map<String, String>> messages) {
         try {

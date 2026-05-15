@@ -5,59 +5,242 @@
     <title>Phase 3 - On-Call 助手 Agent</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 40px); }
-        h1 { text-align: center; margin-bottom: 15px; color: #1a5276; font-size: 22px; }
-        .nav { text-align: center; margin-bottom: 15px; }
-        .nav a { margin: 0 10px; color: #2980b9; text-decoration: none; font-size: 14px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f7fa; color: #333; }
+        .app { display: flex; height: 100vh; }
+
+        /* Sidebar */
+        .sidebar { width: 260px; background: #fff; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 16px; border-bottom: 1px solid #f0f0f0; }
+        .sidebar-header h2 { font-size: 15px; color: #1a5276; margin-bottom: 12px; font-weight: 600; }
+        .new-chat-btn { width: 100%; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s; }
+        .new-chat-btn:hover { background: #c0392b; }
+        .conversation-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .conversation-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s; }
+        .conversation-item:hover { background: #f5f7fa; }
+        .conversation-item.active { background: #e8f4f8; border-left: 3px solid #2980b9; }
+        .conversation-title { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+        .conversation-time { font-size: 11px; color: #999; margin-top: 2px; }
+        .conversation-delete { opacity: 0; font-size: 16px; color: #bbb; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: opacity 0.2s; }
+        .conversation-item:hover .conversation-delete { opacity: 1; }
+        .conversation-delete:hover { color: #e74c3c; background: #fee; }
+        .empty-conversations { text-align: center; padding: 30px 10px; color: #999; font-size: 13px; }
+
+        /* Main area */
+        .main { flex: 1; display: flex; flex-direction: column; padding: 16px 20px; overflow: hidden; min-width: 0; }
+        .main-header { text-align: center; margin-bottom: 10px; flex-shrink: 0; }
+        .main-header h1 { color: #1a5276; font-size: 20px; margin-bottom: 8px; font-weight: 600; }
+        .nav { text-align: center; margin-bottom: 10px; }
+        .nav a { margin: 0 10px; color: #2980b9; text-decoration: none; font-size: 13px; }
         .nav a:hover { text-decoration: underline; }
-        .chat-area { flex: 1; overflow-y: auto; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 15px; }
-        .message { margin-bottom: 16px; display: flex; flex-direction: column; }
+        .chat-area { flex: 1; overflow-y: auto; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 12px; }
+        .message { margin-bottom: 20px; display: flex; flex-direction: column; }
         .message.user { align-items: flex-end; }
         .message.assistant { align-items: flex-start; }
-        .bubble { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.6; font-size: 14px; }
+        .bubble { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.7; font-size: 14px; }
         .message.user .bubble { background: #2980b9; color: white; border-bottom-right-radius: 4px; }
-        .message.assistant .bubble { background: #f0f2f5; color: #333; border-bottom-left-radius: 4px; }
-        .message .role { font-size: 12px; color: #888; margin-bottom: 4px; }
-        .reasoning { max-width: 80%; background: #fff8e1; border-left: 3px solid #ffc107; padding: 10px 14px; border-radius: 0 8px 8px 0; margin-bottom: 8px; font-size: 13px; color: #666; font-style: italic; }
-        .input-area { display: flex; gap: 10px; }
-        .input-area textarea { flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; resize: none; height: 60px; font-family: inherit; }
-        .input-area button { padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; }
+        .message.assistant .bubble { background: #f5f6f7; color: #333; border-bottom-left-radius: 4px; }
+        .message .role { font-size: 12px; color: #999; margin-bottom: 6px; padding-left: 4px; }
+        .input-area { display: flex; gap: 10px; flex-shrink: 0; }
+        .input-area textarea { flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; resize: none; height: 56px; font-family: inherit; outline: none; transition: border-color 0.2s; }
+        .input-area textarea:focus { border-color: #2980b9; }
+        .input-area button { padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
         .input-area button:hover { background: #c0392b; }
         .input-area button:disabled { background: #ccc; cursor: not-allowed; }
         .empty-state { text-align: center; color: #888; padding: 40px 20px; }
-        .empty-state h3 { margin-bottom: 10px; color: #666; }
+        .empty-state h3 { margin-bottom: 10px; color: #666; font-size: 18px; }
         .empty-state p { font-size: 13px; line-height: 1.8; }
+
+        /* ===== Reasoning Block (DeepSeek-style) ===== */
+        .reasoning-block {
+            max-width: 80%;
+            width: 100%;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e8e8e8;
+            background: #fafafa;
+        }
+        .reasoning-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: #f0f2f5;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+            font-size: 13px;
+            color: #666;
+        }
+        .reasoning-header:hover { background: #e8eaed; }
+        .reasoning-header .icon { width: 16px; height: 16px; transition: transform 0.3s ease; flex-shrink: 0; }
+        .reasoning-header .icon svg { width: 100%; height: 100%; fill: #999; }
+        .reasoning-header.expanded .icon { transform: rotate(90deg); }
+        .reasoning-header .label { font-weight: 500; color: #555; }
+        .reasoning-header .status { margin-left: auto; font-size: 12px; color: #aaa; }
+        .reasoning-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease, padding 0.35s ease;
+            background: #f8f9fa;
+        }
+        .reasoning-content.expanded {
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 12px 16px;
+            border-top: 1px solid #eee;
+        }
+        .reasoning-content::-webkit-scrollbar { width: 4px; }
+        .reasoning-content::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+        .reasoning-content .rc-inner {
+            font-size: 13px;
+            line-height: 1.7;
+            color: #555;
+        }
+        .reasoning-content .rc-inner pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin: 8px 0;
+        }
+        .reasoning-content .rc-inner code {
+            background: #eee;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            color: #c0392b;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🤖 Phase 3：On-Call 助手 Agent</h1>
-        <div class="nav">
-            <a href="/v1">关键词搜索</a> |
-            <a href="/v2">语义搜索</a> |
-            <a href="/v3">On-Call 助手</a>
-        </div>
-        <div class="chat-area" id="chatArea">
-            <div class="empty-state">
-                <h3>👋 我是你的 On-Call 值班助手</h3>
-                <p>
-                    我可以帮你解答各类值班问题，例如：<br>
-                    • "服务 OOM 了怎么办？"<br>
-                    • "数据库主从延迟超过30秒怎么处理？"<br>
-                    • "怀疑有人入侵了系统"<br>
-                    • "推荐结果质量下降了"
-                </p>
+    <div class="app">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>💬 对话历史</h2>
+                <button class="new-chat-btn" onclick="newConversation()">+ 新建对话</button>
+            </div>
+            <div class="conversation-list" id="conversationList">
+                <div class="empty-conversations">暂无对话</div>
             </div>
         </div>
-        <div class="input-area">
-            <textarea id="userInput" placeholder="输入你的问题..." onkeypress="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
-            <button id="sendBtn" onclick="sendMessage()">发送</button>
+        <div class="main">
+            <div class="main-header">
+                <h1>🤖 Phase 3：On-Call 助手 Agent</h1>
+                <div class="nav">
+                    <a href="/v1">关键词搜索</a> |
+                    <a href="/v2">语义搜索</a> |
+                    <a href="/v3">On-Call 助手</a>
+                </div>
+            </div>
+            <div class="chat-area" id="chatArea">
+                <div class="empty-state">
+                    <h3>👋 我是你的 On-Call 值班助手</h3>
+                    <p>
+                        我可以帮你解答各类值班问题，例如：<br>
+                        • "服务 OOM 了怎么办？"<br>
+                        • "数据库主从延迟超过30秒怎么处理？"<br>
+                        • "怀疑有人入侵了系统"<br>
+                        • "推荐结果质量下降了"
+                    </p>
+                </div>
+            </div>
+            <div class="input-area">
+                <textarea id="userInput" placeholder="输入你的问题..." onkeypress="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+                <button id="sendBtn" onclick="sendMessage()">发送</button>
+            </div>
         </div>
     </div>
 
     <script>
-        const history = [];
+        let currentConversationId = null;
+        let conversations = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConversations();
+        });
+
+        async function loadConversations() {
+            try {
+                const res = await fetch('/v3/conversations');
+                conversations = await res.json();
+                renderConversationList();
+            } catch (e) {
+                console.error('加载对话列表失败', e);
+            }
+        }
+
+        function renderConversationList() {
+            const list = document.getElementById('conversationList');
+            if (conversations.length === 0) {
+                list.innerHTML = '<div class="empty-conversations">暂无对话</div>';
+                return;
+            }
+            list.innerHTML = conversations.map(conv => `
+                <div class="conversation-item ${conv.id === currentConversationId ? 'active' : ''}" data-id="${conv.id}">
+                    <div style="flex:1;overflow:hidden;">
+                        <div class="conversation-title">${escapeHtml(conv.title)}</div>
+                        <div class="conversation-time">${formatTime(conv.updateTime)}</div>
+                    </div>
+                    <span class="conversation-delete" onclick="event.stopPropagation();deleteConversation('${conv.id}')">×</span>
+                </div>
+            `).join('');
+            list.querySelectorAll('.conversation-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    switchConversation(item.getAttribute('data-id'));
+                });
+            });
+        }
+
+        async function switchConversation(id) {
+            currentConversationId = id;
+            renderConversationList();
+            const area = document.getElementById('chatArea');
+            area.innerHTML = '';
+            try {
+                const res = await fetch('/v3/conversations/' + id);
+                if (!res.ok) return;
+                const conv = await res.json();
+                if (conv.messages && conv.messages.length > 0) {
+                    conv.messages.forEach(msg => {
+                        appendMessage(msg.role, msg.content, false);
+                    });
+                }
+            } catch (e) {
+                console.error('加载对话失败', e);
+            }
+        }
+
+        function newConversation() {
+            currentConversationId = null;
+            document.getElementById('chatArea').innerHTML = `
+                <div class="empty-state">
+                    <h3>👋 我是你的 On-Call 值班助手</h3>
+                    <p>
+                        我可以帮你解答各类值班问题，例如：<br>
+                        • "服务 OOM 了怎么办？"<br>
+                        • "数据库主从延迟超过30秒怎么处理？"<br>
+                        • "怀疑有人入侵了系统"<br>
+                        • "推荐结果质量下降了"
+                    </p>
+                </div>
+            `;
+            renderConversationList();
+        }
+
+        async function deleteConversation(id) {
+            if (!confirm('确定删除该对话吗？')) return;
+            try {
+                await fetch('/v3/conversations/' + id, { method: 'DELETE' });
+                if (currentConversationId === id) {
+                    newConversation();
+                }
+                await loadConversations();
+            } catch (e) {
+                console.error('删除对话失败', e);
+            }
+        }
 
         async function sendMessage() {
             const input = document.getElementById('userInput');
@@ -65,34 +248,41 @@
             const text = input.value.trim();
             if (!text) return;
 
-            appendMessage('user', text);
+            const area = document.getElementById('chatArea');
+            if (area.querySelector('.empty-state')) {
+                area.innerHTML = '';
+            }
+
+            appendMessage('user', text, true);
             input.value = '';
             btn.disabled = true;
             btn.textContent = '思考中...';
-
-            history.push({ role: 'user', content: text });
 
             try {
                 const res = await fetch('/v3/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text, history: history.slice(0, -1) })
+                    body: JSON.stringify({ conversationId: currentConversationId, message: text })
                 });
                 const data = await res.json();
                 const content = data.content || '抱歉，没有获取到回答。';
-                appendMessage('assistant', content);
-                history.push({ role: 'assistant', content: content });
+
+                if (!currentConversationId && data.conversationId) {
+                    currentConversationId = data.conversationId;
+                    await loadConversations();
+                }
+
+                appendMessage('assistant', content, true, data.reasoning);
             } catch (e) {
-                appendMessage('assistant', '[错误] 请求失败: ' + e.message);
+                appendMessage('assistant', '[错误] 请求失败: ' + e.message, true);
             } finally {
                 btn.disabled = false;
                 btn.textContent = '发送';
             }
         }
 
-        function appendMessage(role, content) {
+        function appendMessage(role, content, scroll, reasoning) {
             const area = document.getElementById('chatArea');
-            // Remove empty state if exists
             if (area.querySelector('.empty-state')) {
                 area.innerHTML = '';
             }
@@ -105,27 +295,185 @@
             roleLabel.textContent = role === 'user' ? '你' : 'On-Call 助手';
             msgDiv.appendChild(roleLabel);
 
+            // 工具调用过程（DeepSeek 风格）
+            if (reasoning && reasoning.trim()) {
+                const block = document.createElement('div');
+                block.className = 'reasoning-block';
+
+                const header = document.createElement('div');
+                header.className = 'reasoning-header';
+                header.innerHTML = `
+                    <span class="icon"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+                    <span class="label">思考过程</span>
+                    <span class="status">已深度思考</span>
+                `;
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'reasoning-content';
+                const inner = document.createElement('div');
+                inner.className = 'rc-inner';
+                inner.innerHTML = formatContent(reasoning);
+                contentDiv.appendChild(inner);
+
+                header.addEventListener('click', () => {
+                    const isExpanded = contentDiv.classList.contains('expanded');
+                    if (isExpanded) {
+                        contentDiv.classList.remove('expanded');
+                        header.classList.remove('expanded');
+                    } else {
+                        contentDiv.classList.add('expanded');
+                        header.classList.add('expanded');
+                    }
+                });
+
+                block.appendChild(header);
+                block.appendChild(contentDiv);
+                msgDiv.appendChild(block);
+            }
+
             const bubble = document.createElement('div');
             bubble.className = 'bubble';
-            // Support simple markdown-like formatting
             bubble.innerHTML = formatContent(content);
             msgDiv.appendChild(bubble);
 
             area.appendChild(msgDiv);
-            area.scrollTop = area.scrollHeight;
+            if (scroll) area.scrollTop = area.scrollHeight;
         }
 
         function formatContent(text) {
-            return escapeHtml(text)
-                .replace(/\n/g, '<br>')
-                .replace(/```([\s\S]*?)```/g, '<pre style="background:#f4f4f4;padding:10px;border-radius:6px;overflow-x:auto;"><code>$1</code></pre>')
-                .replace(/`([^`]+)`/g, '<code style="background:#f4f4f4;padding:2px 4px;border-radius:3px;">$1</code>');
+            const codeBlocks = [];
+            text = text.replace(/```([\s\S]*?)```/g, (match, code) => {
+                const id = codeBlocks.length;
+                codeBlocks.push(escapeHtml(code));
+                return `___CODE_BLOCK_${id}___`;
+            });
+
+            const inlineCodes = [];
+            text = text.replace(/`([^`]+)`/g, (match, code) => {
+                const id = inlineCodes.length;
+                inlineCodes.push(escapeHtml(code));
+                return `___INLINE_CODE_${id}___`;
+            });
+
+            text = escapeHtml(text);
+            text = processMarkdownTable(text);
+            text = processMarkdownList(text);
+
+            text = text.replace(/^#### (.*)$/gm, '<h4 style="margin:10px 0 6px;color:#1a5276;font-size:15px;">$1</h4>');
+            text = text.replace(/^### (.*)$/gm, '<h3 style="margin:12px 0 8px;color:#1a5276;font-size:16px;border-bottom:1px solid #eee;padding-bottom:4px;">$1</h3>');
+            text = text.replace(/^## (.*)$/gm, '<h2 style="margin:14px 0 10px;color:#1a5276;font-size:18px;">$1</h2>');
+            text = text.replace(/^# (.*)$/gm, '<h1 style="margin:16px 0 12px;color:#1a5276;font-size:20px;">$1</h1>');
+            text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/^-{3,}$/gm, '<hr style="border:none;border-top:1px solid #ddd;margin:12px 0;">');
+            text = text.replace(/\n/g, '<br>');
+
+            text = text.replace(/___INLINE_CODE_(\d+)___/g, (match, id) => {
+                return `<code style="background:#f4f4f4;padding:2px 5px;border-radius:4px;font-size:13px;color:#c0392b;">${inlineCodes[id]}</code>`;
+            });
+            text = text.replace(/___CODE_BLOCK_(\d+)___/g, (match, id) => {
+                return `<pre style="background:#f8f9fa;padding:12px;border-radius:8px;overflow-x:auto;margin:10px 0;font-size:13px;border:1px solid #e9ecef;"><code>${codeBlocks[id]}</code></pre>`;
+            });
+
+            return text;
+        }
+
+        function processMarkdownTable(text) {
+            const lines = text.split('\n');
+            const result = [];
+            let i = 0;
+            while (i < lines.length) {
+                const line = lines[i].trim();
+                if (line.startsWith('|') && line.endsWith('|')) {
+                    const tableLines = [];
+                    while (i < lines.length) {
+                        const l = lines[i].trim();
+                        if (l.startsWith('|') && l.endsWith('|')) {
+                            tableLines.push(l);
+                            i++;
+                        } else {
+                            break;
+                        }
+                    }
+                    if (tableLines.length >= 2) {
+                        let html = '<table style="border-collapse:collapse;width:100%;margin:10px 0;font-size:13px;">';
+                        let hasSep = false;
+                        tableLines.forEach((row, idx) => {
+                            const cells = row.split('|').slice(1, -1).map(c => c.trim());
+                            if (idx === 1 && cells.every(c => /^[-\s:]+$/.test(c))) {
+                                hasSep = true;
+                                return;
+                            }
+                            const isHeader = idx === 0;
+                            const bg = isHeader ? 'background:#f8f9fa;' : '';
+                            const tag = isHeader ? 'th' : 'td';
+                            html += '<tr>';
+                            cells.forEach(cell => {
+                                html += `<${tag} style="border:1px solid #ddd;padding:8px 10px;text-align:left;${bg}">${cell}</${tag}>`;
+                            });
+                            html += '</tr>';
+                        });
+                        html += '</table>';
+                        result.push(html);
+                    } else {
+                        result.push(...tableLines);
+                    }
+                } else {
+                    result.push(lines[i]);
+                    i++;
+                }
+            }
+            return result.join('\n');
+        }
+
+        function processMarkdownList(text) {
+            const lines = text.split('\n');
+            const result = [];
+            let inList = false;
+            let items = [];
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const match = line.match(/^(\s*)[-*] (.*)$/);
+                if (match) {
+                    if (!inList) inList = true;
+                    items.push({ indent: match[1].length, content: match[2] });
+                } else {
+                    if (inList) {
+                        result.push(renderList(items));
+                        items = [];
+                        inList = false;
+                    }
+                    result.push(line);
+                }
+            }
+            if (inList) result.push(renderList(items));
+            return result.join('\n');
+        }
+
+        function renderList(items) {
+            let html = '<ul style="margin:8px 0;padding-left:20px;list-style-type:disc;">';
+            items.forEach(item => {
+                const ml = item.indent * 12;
+                html += `<li style="margin-left:${ml}px;margin-bottom:5px;line-height:1.6;">${item.content}</li>`;
+            });
+            html += '</ul>';
+            return html;
         }
 
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function formatTime(isoString) {
+            if (!isoString) return '';
+            const d = new Date(isoString);
+            const now = new Date();
+            const diff = now - d;
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            return (d.getMonth() + 1) + '/' + d.getDate();
         }
     </script>
 </body>

@@ -1,14 +1,23 @@
 package com.example.oncall.model;
 
 public class ChatResponse {
+    private String conversationId;
     private String content;
     private String reasoning;
 
     public ChatResponse() {}
 
-    public ChatResponse(String content, String reasoning) {
+    public ChatResponse(String conversationId, String content) {
+        this.conversationId = conversationId;
         this.content = content;
-        this.reasoning = reasoning;
+    }
+
+    public String getConversationId() {
+        return conversationId;
+    }
+
+    public void setConversationId(String conversationId) {
+        this.conversationId = conversationId;
     }
 
     public String getContent() {
